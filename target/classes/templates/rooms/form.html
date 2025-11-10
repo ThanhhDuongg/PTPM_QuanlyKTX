@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${room.id} ? 'Sửa Phòng' : 'Thêm Phòng'">Thêm Phòng</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<div th:replace="fragments/sidebar :: sidebar"></div>
+<div class="content-with-sidebar">
+    <div class="form-container">
+        <h2 th:text="${room.id} ? 'Sửa Phòng' : 'Thêm Phòng'"></h2>
+        <div th:if="${formError}" class="alert alert-danger" th:text="${formError}"></div>
+        <div th:if="${#lists.isEmpty(buildings)}" class="alert alert-warning">
+            Chưa có tòa nhà nào. Vui lòng <a th:href="@{/buildings/new}">thêm tòa nhà</a> trước khi tạo phòng.
+        </div>
+        <div th:if="${#lists.isEmpty(roomTypes)}" class="alert alert-warning">
+            Chưa có loại phòng nào. Vui lòng <a th:href="@{/room-types/new}">thêm loại phòng</a> trước khi tạo phòng.
+        </div>
+        <form th:action="${room.id} ? @{/rooms/{id}(id=${room.id})} : @{/rooms}" th:object="${room}" method="post">
+            <div class="form-group">
+                <label for="number">Số Phòng</label>
+                <input type="text" id="number" th:field="*{number}" required>
+            </div>
+            <div class="form-group">
+                <label for="floor">Tầng</label>
+                <input type="number" id="floor" th:field="*{floor}" min="0">
+                <small>Để trống nếu phòng nằm ở tầng trệt hoặc không xác định.</small>
+            </div>
+            <div class="form-group">
+                <label for="buildingId">Thuộc tòa</label>
+                <select id="buildingId" name="buildingId" required>
+                    <option value="" th:selected="${selectedBuildingId == null}">--Chọn tòa nhà--</option>
+                    <option th:each="building : ${buildings}"
+                            th:value="${building.id}"
+                            th:text="${building.code + ' - ' + building.name}"
+                            th:selected="${selectedBuildingId != null and selectedBuildingId.equals(building.id)}"></option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="roomTypeId">Loại Phòng</label>
+                <div class="inline-actions">
+                    <select id="roomTypeId" name="roomTypeId" required>
+                        <option value="" th:selected="${selectedRoomTypeId == null}">--Chọn loại phòng--</option>
+                        <option th:each="type : ${roomTypes}"
+                                th:value="${type.id}"
+                                th:text="${type.name}"
+                                th:selected="${selectedRoomTypeId != null and selectedRoomTypeId.equals(type.id)}">
+                        </option>
+                    </select>
+                    <a th:href="@{/room-types}" class="button btn-secondary" title="Quản lý loại phòng">
+                        <i class="fas fa-cog"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="capacity">Sức Chứa</label>
+                <input type="number" id="capacity" th:field="*{capacity}" min="1" required>
+            </div>
+            <div class="form-group">
+                <label for="price">Giá Phòng (VNĐ)</label>
+                <input type="number" id="price" th:field="*{price}" min="0">
+                <small>Để 0 nếu muốn áp dụng giá hiện tại của loại phòng.</small>
+            </div>
+            <div class="form-group">
+                <label for="occupancyStatus">Trạng thái</label>
+                <select id="occupancyStatus" th:field="*{occupancyStatus}">
+                    <option th:each="status : ${roomStatuses}"
+                            th:value="${status}"
+                            th:text="${status.displayName}"/>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="button btn-save" th:disabled="${#lists.isEmpty(buildings) || #lists.isEmpty(roomTypes)}">Lưu</button>
+                <a th:href="@{/rooms}" class="button btn-cancel">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>
