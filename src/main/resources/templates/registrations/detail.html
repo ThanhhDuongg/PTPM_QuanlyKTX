@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Chi tiết yêu cầu đăng ký</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<div th:replace="fragments/sidebar :: sidebar"></div>
+<div th:replace="~{fragments/header :: popup}"></div>
+
+<div class="content-with-sidebar">
+    <div class="container">
+        <div class="page-header">
+            <div>
+                <h2>Chi tiết yêu cầu #<span th:text="${request.id}"></span></h2>
+                <p class="text-muted">Quản lý thông tin đăng ký và phản hồi cho sinh viên</p>
+            </div>
+            <a class="button btn-view" th:href="@{/registrations}">Trở lại danh sách</a>
+        </div>
+
+        <div th:if="${message != null}" th:class="'alert ' + ${alertClass != null ? alertClass : 'alert-info'}" th:text="${message}"></div>
+
+        <div class="card">
+            <h3>Thông tin sinh viên</h3>
+            <div class="card-grid">
+                <div>
+                    <strong>Họ và tên:</strong>
+                    <p th:text="${request.student != null ? request.student.name : 'Không rõ'}"></p>
+                </div>
+                <div>
+                    <strong>Mã số:</strong>
+                    <p th:text="${request.student != null ? request.student.code : '-'}"></p>
+                </div>
+                <div>
+                    <strong>Email:</strong>
+                    <p th:text="${request.student != null ? request.student.email : '-'}"></p>
+                </div>
+                <div>
+                    <strong>Phòng hiện tại:</strong>
+                    <p th:text="${request.student != null && request.student.room != null ? request.student.room.number : 'Chưa ở'}"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Chi tiết yêu cầu</h3>
+            <form class="form-grid" th:action="@{'/registrations/' + ${request.id} + '/update'}" method="post" th:object="${request}">
+                <div class="form-group">
+                    <label for="desiredRoomType">Loại phòng mong muốn</label>
+                    <input id="desiredRoomType" th:field="*{desiredRoomType}" placeholder="VD: Phòng 4 người">
+                </div>
+                <div class="form-group">
+                    <label for="preferredRoomNumber">Phòng ưu tiên</label>
+                    <input id="preferredRoomNumber" th:field="*{preferredRoomNumber}" placeholder="Số phòng mong muốn">
+                </div>
+                <div class="form-group">
+                    <label for="expectedMoveInDate">Ngày dự kiến vào</label>
+                    <input id="expectedMoveInDate" type="date" th:field="*{expectedMoveInDate}">
+                </div>
+                <div class="form-group form-group-full">
+                    <label for="additionalNotes">Ghi chú của sinh viên</label>
+                    <textarea id="additionalNotes" th:field="*{additionalNotes}" rows="4"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button class="button btn-add" type="submit">Lưu chỉnh sửa</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Phê duyệt &amp; Xếp phòng</h3>
+
+            <form class="form-inline" th:action="@{'/registrations/' + ${request.id}}" method="get">
+                <div class="form-group">
+                    <label for="filterStartMonth">Tháng bắt đầu</label>
+                    <input id="filterStartMonth" type="month" name="startMonth" th:value="${selectedStartMonth}">
+                </div>
+                <div class="form-group">
+                    <label for="filterEndMonth">Tháng kết thúc</label>
+                    <input id="filterEndMonth" type="month" name="endMonth" th:value="${selectedEndMonth}">
+                </div>
+                <button class="button btn-view" type="submit">Lấy gợi ý phòng</button>
+            </form>
+
+            <div class="table-wrapper" th:if="${roomSuggestions != null}">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Phòng</th>
+                        <th>Tòa</th>
+                        <th>Loại phòng</th>
+                        <th>Sức chứa</th>
+                        <th>Học phí</th>
+                        <th>Đang ở</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="suggestion : ${roomSuggestions}">
+                        <td>
+                            <strong th:text="${suggestion.number}"></strong>
+                            <span class="badge" th:if="${suggestion.matchesPreference}" style="margin-left: 0.5rem;">Ưu tiên</span>
+                            <div class="meta-sub" th:text="${'Còn ' + suggestion.availableSlots + ' chỗ'}"></div>
+                        </td>
+                        <td th:text="${suggestion.buildingName != null ? suggestion.buildingName : '---'}"></td>
+                        <td th:text="${suggestion.roomType != null ? suggestion.roomType : '-'}"></td>
+                        <td th:text="${suggestion.capacity + ' (đã ở ' + suggestion.occupiedSlots + ')'}"></td>
+                        <td th:text="${suggestion.price} + ' đ/tháng'"></td>
+                        <td>
+                            <span th:if="${#lists.isEmpty(suggestion.occupants)}">Chưa có sinh viên</span>
+                            <span th:each="occupant, iterStat : ${suggestion.occupants}">
+                                <span th:text="${occupant}"></span><span th:if="${!iterStat.last}">, </span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(roomSuggestions)}">
+                        <td colspan="6" class="text-center text-muted">Chưa có phòng phù hợp trong khoảng thời gian đã chọn.</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <form class="form-grid" th:action="@{'/registrations/' + ${request.id} + '/assign'}" method="post">
+                <div class="form-group">
+                    <label for="assignStartMonth">Tháng bắt đầu ở</label>
+                    <input id="assignStartMonth" type="month" name="startMonth" required th:value="${selectedStartMonth}">
+                </div>
+                <div class="form-group">
+                    <label for="assignEndMonth">Tháng kết thúc ở</label>
+                    <input id="assignEndMonth" type="month" name="endMonth" required th:value="${selectedEndMonth}">
+                </div>
+                <div class="form-group">
+                    <label for="roomId">Chọn phòng</label>
+                    <select id="roomId" name="roomId" required>
+                        <option value="" disabled selected>-- Chọn phòng phù hợp --</option>
+                        <option th:each="suggestion : ${roomSuggestions}"
+                                th:value="${suggestion.id}"
+                                th:text="${'Phòng ' + suggestion.number + ' • ' + (suggestion.buildingName != null ? suggestion.buildingName : 'Không rõ') + ' • Còn ' + suggestion.availableSlots + '/' + suggestion.capacity}"
+                                th:disabled="${suggestion.availableSlots <= 0}"></option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="paymentPlan">Hình thức thanh toán</label>
+                    <select id="paymentPlan" name="paymentPlan">
+                        <option th:each="plan : ${paymentPlans}"
+                                th:value="${plan.name()}"
+                                th:selected="${plan.name() == 'MONTHLY'}"
+                                th:text="${plan.name() == 'FULL_TERM' ? 'Đóng cả kỳ' : 'Theo tháng'}"></option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="billingDay">Ngày thu phí (nếu cần)</label>
+                    <input id="billingDay" type="number" name="billingDay" min="1" max="31" placeholder="Mặc định ngày bắt đầu">
+                </div>
+                <div class="form-group form-group-checkbox">
+                    <input id="force" type="checkbox" name="force">
+                    <label for="force">Bỏ qua thứ tự ưu tiên (nếu cần xử lý gấp)</label>
+                </div>
+                <div class="form-group form-group-full">
+                    <label for="assignmentNotes">Ghi chú cho sinh viên</label>
+                    <textarea id="assignmentNotes" name="adminNotes" rows="3" placeholder="Thông tin thêm về hợp đồng hoặc yêu cầu xác nhận"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button class="button btn-add" type="submit">Phê duyệt &amp; tạo hợp đồng</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Phản hồi &amp; trạng thái</h3>
+            <form class="form-grid" th:action="@{'/registrations/' + ${request.id} + '/status'}" method="post">
+                <div class="form-group">
+                    <label for="status">Trạng thái xử lý</label>
+                    <select id="status" name="status">
+                        <option th:each="status : ${statusOptions}"
+                                th:value="${status.name()}"
+                                th:selected="${status == request.status}"
+                                th:text="${status.displayName}"></option>
+                    </select>
+                </div>
+                <div class="form-group form-group-full">
+                    <label for="adminNotes">Phản hồi tới sinh viên</label>
+                    <textarea id="adminNotes" name="adminNotes" rows="4" placeholder="Ghi chú, yêu cầu bổ sung hoặc thông báo kết quả" th:text="${request.adminNotes}"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Ngày gửi</label>
+                    <input type="text" th:value="${request.createdAt != null ? #temporals.format(request.createdAt, 'dd/MM/yyyy HH:mm') : '-'}" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Ngày cập nhật</label>
+                    <input type="text" th:value="${request.updatedAt != null ? #temporals.format(request.updatedAt, 'dd/MM/yyyy HH:mm') : '-'}" readonly>
+                </div>
+                <div class="form-actions">
+                    <button class="button btn-add" type="submit">Cập nhật trạng thái</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
