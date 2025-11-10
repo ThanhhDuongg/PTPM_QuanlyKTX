@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${fee.id} ? 'Sửa Phí' : 'Thêm Phí'">Thêm Phí</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div th:replace="~{fragments/header :: header}"></div>
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <div class="content-with-sidebar">
+        <div class="form-container">
+        <h2 th:text="${fee.id} ? 'Sửa Phí' : 'Thêm Phí'"></h2>
+        <form th:action="${fee.id} ? @{/fees/{id}(id=${fee.id})} : @{/fees}" th:object="${fee}" method="post">
+            <div class="form-group" id="contractGroup">
+                <label for="contractInput">Hợp Đồng</label>
+                <input type="text" id="contractInput" list="contractOptions" autocomplete="off"
+                       th:value="${fee.contract != null && fee.contract.student != null ? fee.contract.id + ' - ' + fee.contract.student.code + ' - ' + fee.contract.student.name : ''}">
+                <datalist id="contractOptions"></datalist>
+                <input type="hidden" id="contractId" th:field="*{contract.id}">
+            </div>
+            <div id="roomScopeFields" class="form-group-grid" hidden
+                 th:attr="data-selected-building=${fee.roomId != null && fee.contract != null && fee.contract.room != null && fee.contract.room.building != null ? fee.contract.room.building.id : ''},
+                          data-selected-room=${fee.roomId != null ? fee.roomId : (fee.contract != null && fee.contract.room != null ? fee.contract.room.id : '')}">
+                <input type="hidden" id="roomId" th:field="*{roomId}">
+                <div class="form-group">
+                    <label for="buildingSelect">Tòa nhà</label>
+                    <select id="buildingSelect">
+                        <option value="">-- Chọn tòa --</option>
+                    </select>
+
+                </div>
+                <div class="form-group">
+                    <label for="roomSelect">Phòng</label>
+                    <select id="roomSelect" disabled>
+                        <option value="">-- Chọn phòng --</option>
+                    </select>
+
+                </div>
+                <div class="form-group full-width">
+                    <label>Danh sách sinh viên</label>
+                    <div id="roomOccupants" class="info-box muted">Chọn phòng để hiển thị danh sách sinh viên.</div>
+                    <small id="roomShareHint" class="help-text"></small>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="type">Loại Phí</label>
+                <select id="type" th:field="*{type}" required>
+                    <option value="RENT">Tiền Phòng</option>
+                    <option value="ELECTRICITY">Tiền Điện</option>
+                    <option value="WATER">Tiền Nước</option>
+                    <option value="MAINTENANCE">Bảo Trì</option>
+                    <option value="CLEANING">Tiền Dọn Dẹp</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="scope">Phạm vi áp dụng</label>
+                <select id="scope" th:field="*{scope}" required>
+                    <option th:value="${T(com.example.dorm.model.FeeScope).INDIVIDUAL}">Cá nhân</option>
+                    <option th:value="${T(com.example.dorm.model.FeeScope).ROOM}">Cả phòng</option>
+                </select>
+
+            </div>
+            <div class="form-group">
+                <label for="amount">Số Tiền</label>
+                <input type="text" id="amount" name="amountInput"
+                       th:value="${amountInputValue}"
+                       required>
+
+            </div>
+            <div class="form-group">
+                <label for="dueDate">Ngày Đáo Hạn</label>
+                <input type="date" id="dueDate" th:field="*{dueDate}" required>
+            </div>
+            <div class="form-group">
+                <label for="paymentStatus">Trạng Thái Thanh Toán</label>
+                <select id="paymentStatus" th:field="*{paymentStatus}" required>
+                    <option value="PAID">Đã Thanh Toán</option>
+                    <option value="UNPAID">Chưa Thanh Toán</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="button btn-save">Lưu</button>
+                <a th:href="@{/fees}" class="button btn-cancel">Hủy</a>
+            </div>
+        </form>
+        </div>
+    </div>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const cInput = document.getElementById('contractInput');
+        const cList = document.getElementById('contractOptions');
+        const cHidden = document.getElementById('contractId');
+        const scopeSelect = document.getElementById('scope');
+        const contractGroup = document.getElementById('contractGroup');
+        const roomScopeFields = document.getElementById('roomScopeFields');
+        const buildingSelect = document.getElementById('buildingSelect');
+        const roomSelect = document.getElementById('roomSelect');
+        const roomIdInput = document.getElementById('roomId');
+        const occupantContainer = document.getElementById('roomOccupants');
+        const shareHint = document.getElementById('roomShareHint');
+        const amountInput = document.getElementById('amount');
+
+        const selectedBuildingId = roomScopeFields.dataset.selectedBuilding;
+        const selectedRoomId = roomScopeFields.dataset.selectedRoom;
+
+        let currentOccupantCount = 0;
+
+        function fetchContracts(q) {
+            if (!q) { cList.innerHTML = ''; return; }
+            fetch('/contracts/search?term=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => {
+                    cList.innerHTML = '';
+                    data.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.label;
+                        opt.dataset.id = c.id;
+                        cList.appendChild(opt);
+                    });
+                });
+        }
+
+        function toggleScopeFields() {
+            const isRoomScope = scopeSelect.value === 'ROOM';
+            contractGroup.hidden = isRoomScope;
+            roomScopeFields.hidden = !isRoomScope;
+            buildingSelect.required = isRoomScope;
+            roomSelect.required = isRoomScope;
+            if (!isRoomScope) {
+                buildingSelect.value = '';
+                roomSelect.innerHTML = '<option value="">-- Chọn phòng --</option>';
+                roomSelect.disabled = true;
+                occupantContainer.textContent = 'Chọn phòng để hiển thị danh sách sinh viên.';
+                shareHint.textContent = '';
+                roomIdInput.value = '';
+            } else {
+                cHidden.value = '';
+            }
+        }
+
+        function loadBuildings() {
+            fetch('/buildings/options')
+                .then(r => r.json())
+                .then(data => {
+                    buildingSelect.innerHTML = '<option value="">-- Chọn tòa --</option>';
+                    data.forEach(building => {
+                        const option = document.createElement('option');
+                        option.value = building.id;
+                        option.textContent = building.code ? `${building.code} - ${building.name}` : building.name;
+                        buildingSelect.appendChild(option);
+                    });
+                    if (selectedBuildingId) {
+                        buildingSelect.value = selectedBuildingId;
+                        loadRooms(selectedBuildingId, selectedRoomId);
+                    }
+                });
+        }
+
+        function loadRooms(buildingId, roomIdToSelect) {
+            if (!buildingId) {
+                roomSelect.innerHTML = '<option value="">-- Chọn phòng --</option>';
+                roomSelect.disabled = true;
+                occupantContainer.textContent = 'Chọn phòng để hiển thị danh sách sinh viên.';
+                shareHint.textContent = '';
+                roomIdInput.value = '';
+                return;
+            }
+            fetch(`/rooms/by-building/${buildingId}`)
+                .then(r => r.json())
+                .then(data => {
+                    roomSelect.innerHTML = '<option value="">-- Chọn phòng --</option>';
+                    data.forEach(room => {
+                        const option = document.createElement('option');
+                        option.value = room.id;
+                        option.textContent = `Phòng ${room.number}`;
+                        roomSelect.appendChild(option);
+                    });
+                    roomSelect.disabled = false;
+                    if (roomIdToSelect) {
+                        roomSelect.value = roomIdToSelect;
+                        loadRoomContracts(roomIdToSelect);
+                    }
+                });
+        }
+
+        function loadRoomContracts(roomId) {
+            if (!roomId) {
+                occupantContainer.textContent = 'Chọn phòng để hiển thị danh sách sinh viên.';
+                shareHint.textContent = '';
+                roomIdInput.value = '';
+                currentOccupantCount = 0;
+                return;
+            }
+            fetch(`/contracts/by-room/${roomId}`)
+                .then(r => r.json())
+                .then(data => {
+                    roomIdInput.value = roomId;
+                    if (!Array.isArray(data) || data.length === 0) {
+                        occupantContainer.textContent = 'Phòng chưa có sinh viên đang ở.';
+                        currentOccupantCount = 0;
+                    } else {
+                        const list = document.createElement('ul');
+                        list.classList.add('plain-list');
+                        data.forEach(contract => {
+                            const item = document.createElement('li');
+                            item.textContent = contract.label;
+                            list.appendChild(item);
+                        });
+                        occupantContainer.innerHTML = '';
+                        occupantContainer.appendChild(list);
+                        currentOccupantCount = data.length;
+                    }
+                    updateShareHint();
+                });
+        }
+
+        function updateShareHint() {
+            if (!shareHint) {
+                return;
+            }
+            if (!roomScopeFields || roomScopeFields.hidden || currentOccupantCount <= 0) {
+                shareHint.textContent = '';
+                return;
+            }
+            const total = parseInt(amountInput.value.replace(/\D/g, ''), 10) || 0;
+            if (total <= 0) {
+                shareHint.textContent = '';
+                return;
+            }
+            const baseShare = Math.floor(total / currentOccupantCount);
+            const remainder = total - baseShare * currentOccupantCount;
+            if (remainder === 0) {
+                shareHint.textContent = `Mỗi sinh viên tạm tính: ${baseShare.toLocaleString('vi-VN')}₫.`;
+            } else {
+                shareHint.textContent = `Mỗi sinh viên tạm tính: ${baseShare.toLocaleString('vi-VN')}₫, ` +
+                    `có ${remainder} bạn đầu tiên cộng thêm 1₫ để làm tròn.`;
+            }
+        }
+
+        cInput.addEventListener('input', () => {
+            fetchContracts(cInput.value);
+            const opt = Array.from(cList.options).find(o => o.value === cInput.value);
+            cHidden.value = opt ? opt.dataset.id : '';
+        });
+        cInput.addEventListener('change', () => {
+            const opt = Array.from(cList.options).find(o => o.value === cInput.value);
+            cHidden.value = opt ? opt.dataset.id : '';
+        });
+        if (cInput.value) { fetchContracts(cInput.value); }
+
+        scopeSelect.addEventListener('change', () => {
+            toggleScopeFields();
+            if (scopeSelect.value === 'ROOM' && buildingSelect.options.length <= 1) {
+                loadBuildings();
+            }
+        });
+
+        buildingSelect.addEventListener('change', () => {
+            cHidden.value = '';
+            loadRooms(buildingSelect.value, null);
+        });
+
+        roomSelect.addEventListener('change', () => {
+            cHidden.value = '';
+            loadRoomContracts(roomSelect.value);
+        });
+
+        amountInput.addEventListener('input', updateShareHint);
+
+        toggleScopeFields();
+        if (scopeSelect.value === 'ROOM') {
+            loadBuildings();
+            updateShareHint();
+        }
+        /*]]>*/
+    </script>
+</body>
+</html>
