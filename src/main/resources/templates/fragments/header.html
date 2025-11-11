@@ -1,0 +1,105 @@
+<<!-- templates/fragments/header.html -->
+<div th:fragment="header"
+     xmlns:th="http://www.thymeleaf.org"
+     xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+    <header class="header">
+        <div class="header-left">
+            <img th:src="@{/images/logo-phenikaa.png}" alt="Phenikaa Logo" class="header-logo" />
+            <div class="header-text">
+                <h1 class="header-title">Phenikaa University</h1>
+                <p class="header-subtitle">Hệ thống quản lý ký túc xá</p>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <div class="user-profile" sec:authorize="isAuthenticated()" th:with="auth=${#authentication}">
+                <button type="button" class="user-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="user-menu">
+    <span class="user-avatar"
+          th:classappend="${currentUser != null && currentUser.avatarFilename != null ? ' has-image' : ''}">
+      <img th:if="${currentUser != null && currentUser.avatarFilename != null}"
+           th:src="@{/uploads/avatars/{file}(file=${currentUser.avatarFilename})}"
+           th:alt="${auth != null && auth.name != null ? 'Ảnh đại diện của ' + auth.name : 'Ảnh đại diện người dùng'}" />
+      <span th:unless="${currentUser != null && currentUser.avatarFilename != null}"
+            th:text="${auth != null && auth.name != null && auth.name.length() > 0 ? auth.name.substring(0,1).toUpperCase() : 'U'}">U</span>
+    </span>
+                    <span class="user-meta">
+      <span class="user-name" th:text="${auth != null && auth.name != null ? auth.name : 'Người dùng'}">Người dùng</span>
+      <span class="user-role" th:text="${#strings.arrayJoin(auth.authorities.![authority], ', ')}"></span>
+    </span>
+                    <span class="user-caret" aria-hidden="true">▾</span>
+                </button>
+
+                <!-- Ẩn sẵn bằng hidden để không bị “nháy” trước khi JS chạy -->
+                <div class="user-dropdown" id="user-menu" role="menu" hidden>
+                    <a class="user-dropdown-link" th:href="@{/account/profile}" role="menuitem" sec:authorize="isAuthenticated()">
+                        <span>Cập nhật thông tin</span>
+                    </a>
+                    <a class="user-dropdown-link" th:href="@{/account/password}" role="menuitem" sec:authorize="hasAnyRole('ADMIN','STAFF','STUDENT')">
+                        <span>Đổi mật khẩu</span>
+                    </a>
+                    <form th:action="@{/logout}" method="post" role="none">
+                        <button type="submit" class="user-dropdown-link user-dropdown-logout" role="menuitem">Đăng xuất</button>
+                    </form>
+                </div>
+            </div>
+
+            <a class="login-link" th:href="@{/login}" sec:authorize="!isAuthenticated()">Đăng nhập</a>
+        </div>
+    </header>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const popup = document.getElementById('popup-message');
+            if (popup) {
+                popup.style.display = 'flex';
+                window.setTimeout(function() {
+                    popup.style.display = 'none';
+                }, 3000);
+            }
+
+            const initUserProfile = (userProfile) => {
+                const trigger = userProfile.querySelector('.user-trigger');
+                const dropdown = userProfile.querySelector('.user-dropdown');
+                if (!trigger || !dropdown) {
+                    return;
+                }
+
+                const toggleMenu = (expand) => {
+                    const isOpen = expand !== undefined ? expand : !userProfile.classList.contains('open');
+                    userProfile.classList.toggle('open', isOpen);
+                    trigger.setAttribute('aria-expanded', String(isOpen));
+                    dropdown.hidden = !isOpen;
+                };
+
+                dropdown.hidden = true;
+
+                trigger.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    toggleMenu();
+                });
+
+                document.addEventListener('click', (event) => {
+                    if (!userProfile.contains(event.target)) {
+                        toggleMenu(false);
+                    }
+                });
+
+                document.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        toggleMenu(false);
+                    }
+                });
+            };
+
+            document.querySelectorAll('.user-profile').forEach(initUserProfile);
+        });
+    </script>
+</div>
+
+<div th:fragment="popup" xmlns:th="http://www.thymeleaf.org">
+    <div id="popup-message" th:if="${message}" th:class="'popup-alert ' + ${alertClass}" style="display:none;">
+        <span th:text="${message}"></span>
+    </div>
+</div>
